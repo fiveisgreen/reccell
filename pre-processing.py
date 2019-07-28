@@ -165,7 +165,7 @@ def create_subsample(img, output_w,output_h,stride,padding = 0,auto_extra_paddin
 
         if (auto_extra_padding):
             _row = np.zeros(((output_w),(output_h)),dtype=np.uint8)  
-            _row[:,0:(img_n_h - y_pt)] = img_n[x_pt:(x_pt+output_w), y_pt:]
+            _row[:,0:(img_n_h - y_pt)] = _col[:, y_pt:]
             imgs.append(_row)
 
     return imgs
