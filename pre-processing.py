@@ -107,6 +107,17 @@ def create_subsample(img, output_w,output_h,stride,padding = 0,auto_extra_paddin
     '''
     Input:
         Image tensor
+        output_w: output width
+        output_h: output_height
+        stride
+        padding: default = 0
+        auto_extra_padding: default true
+     
+    Output:
+        A list of imgs
+        
+    Example:
+        create_subsample(img,200,200,150,0)
     
     '''
     # Size check
