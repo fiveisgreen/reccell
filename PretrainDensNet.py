@@ -36,7 +36,7 @@ from sklearn.model_selection import train_test_split
 import warnings
 warnings.filterwarnings('ignore')
 
-path_data = '/data1/lyan/CellularImage/20190721/RecursionCellClass'
+path_data = '../data/kaggle/reccell/recursion-cellular-image-classification'
 # device = 'cuda'
 torch.manual_seed(0)
 

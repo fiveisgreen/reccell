@@ -8,7 +8,11 @@ Created on Sun Jul 28 10:02:10 2019
 
 import cv2
 import numpy as np
-
+import pandas as pd
+import os
+from tqdm import tqdm
+from queue import Queue
+from threading import Thread
 
 
 
@@ -87,6 +91,8 @@ def load_image(path, cell, batch, plate_no,plate_loc):
     
     '''
     
+    if isinstance(batch,str):
+        batch = int(batch)
     
     folder_name = "{}/{}-{:02d}/Plate{}".format(path,cell,batch,plate_no)
     
@@ -99,11 +105,10 @@ def load_image(path, cell, batch, plate_no,plate_loc):
         imgs.append(_)
     
     return imgs
-    
-    
-    
 
-def create_subsample(img, output_w,output_h,stride,padding = 0,auto_extra_padding=True):
+
+
+def create_subsample_2d(img, output_w,output_h,stride,padding = 0,auto_extra_padding=True):
     '''
     Input:
         Image tensor
@@ -180,3 +185,77 @@ def create_subsample(img, output_w,output_h,stride,padding = 0,auto_extra_paddin
             imgs.append(_row)
 
     return imgs
+
+class Row_dumper(Thread):
+    
+    def __init__(self,queue, dcate,output_w,output_h,stride,data_root_path,data_new_root_path):
+        Thread.__init__(self)
+        self.queue = queue
+        self.dcate = dcate
+        self.output_w = output_w
+        self.output_h = output_h
+        self.stride = stride
+        self.data_root_path = data_root_path
+        self.data_new_root_path = data_new_root_path
+    
+    def run(self):
+        while True:
+            row,_path,idx = self.queue.get()
+            try:
+                self._dump_subimage(row,_path,idx)
+            finally:
+                self.queue.task_done()
+   
+    def _dump_subimage(self, row,_path,idx):
+        print("Saving {} -> {}".format(idx,_path))
+        cell, batch = tuple(row['experiment'].split("-"))
+        imgs = load_image(f'{self.data_root_path}/{self.dcate}', cell, batch, row['plate'],row['well'])
+        for site in range(0,2):
+            for channel in range(0,6):
+                subimgs = create_subsample_2d(imgs[site][channel], self.output_w,self.output_h,self.stride)
+                for sub_idx, subimg in enumerate(subimgs):
+                    _fname = "{}/{}_s{}_w{}_{:02d}".format(_path,row['well'],(site+1),(channel+1),sub_idx)
+                    
+                    np.save(_fname,subimg)
+    
+    
+    
+def _dump_subsample(df,dcate,output_w,output_h,stride,data_root_path,data_new_root_path):
+    queue = Queue()
+    
+    for x in range(16):
+        dumper = Row_dumper(queue, dcate,output_w,output_h,stride,data_root_path,data_new_root_path)
+        dumper.daemon = True
+        dumper.start()
+    
+    for idx, row in df.iterrows():
+        _path = "{}/{}/{}/Plate{}".format(data_new_root_path,dcate,row['experiment'],row['plate'])
+        if not os.path.exists(_path):
+            os.makedirs(_path)
+        queue.put((row,_path,idx))
+    
+    queue.join()
+    
+
+def dump_subsample(output_w,output_h,stride,data_root_path,data_new_root_path):
+    # Load CSV files
+    df_train = pd.read_csv(f'{data_root_path}/train.csv')
+    df_test = pd.read_csv(f'{data_root_path}/test.csv')
+    
+    _dump_subsample(df_train,"train",output_w,output_h,stride,data_root_path,data_new_root_path)
+    _dump_subsample(df_test,"test",output_w,output_h,stride,data_root_path,data_new_root_path)
+
+
+
+if __name__ == "__main__":
+    output_w = 224
+    output_h = 224
+    stride = 144
+    
+    data_root_path = "../data/kaggle/reccell/recursion-cellular-image-classification"
+    data_new_root_path = "../data/kaggle/reccell/processed_data"
+    
+    if not os.path.exists(data_new_root_path):
+        os.makedirs(data_new_root_path)
+    
+    dump_subsample(output_w,output_h,stride,data_root_path,data_new_root_path)
