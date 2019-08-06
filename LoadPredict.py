@@ -209,10 +209,10 @@ def get_data_loaders(train_batch_size, val_batch_size, channels, classes):
     # ds_test = ImagesDS(df_test, path_data, mode='test', channels=channels)
 
     # === ADDED FOR DISTRIBUTED >>>
-    if args.distributed:
-        train_sampler = D.distributed.DistributedSampler(ds)
-    else:
-        train_sampler = None
+    # if args.distributed:
+    #     train_sampler = D.distributed.DistributedSampler(ds)
+    # else:
+    train_sampler = None
     # >>> ADDED FOR DISTRIBUTED ===
 
     train_loader = D.DataLoader(ds, sampler=train_sampler, batch_size=train_batch_size, shuffle=(train_sampler is None))
@@ -309,8 +309,8 @@ def run(train_batch_size, val_batch_size, epochs, lr, log_interval, channels, cl
         device = "cpu"
 
     # === ADDED FOR DISTRIBUTED >>>
-    if args.distributed:
-        model = DistributedDataParallel(model, [args.gpu])
+    # if args.distributed:
+    #     model = DistributedDataParallel(model, [args.gpu])
     # >>> ADDED FOR DISTRIBUTED ===
     
     optimizer = torch.optim.Adam(model.parameters(), lr=lr)
@@ -329,7 +329,7 @@ def run(train_batch_size, val_batch_size, epochs, lr, log_interval, channels, cl
                                             #          "nll": Loss(F.nll_loss)},
                                             # device=device)
     # process bar
-    # pbar_log = ProgressBar(bar_format='')
+    # pbar = ProgressBar(bar_format='')
     # pbar.attach(trainer, output_transform=lambda x: {'loss': x})
     desc = "ITERATION - loss: {:.2f}"
     pbar = tqdm(
@@ -352,16 +352,16 @@ def run(train_batch_size, val_batch_size, epochs, lr, log_interval, channels, cl
             for name, child in model.named_children():  # module.
                 # pbar.log_message(name)
                 if name == 'classifier':
-                    # pbar_log.log_message(name + ' is unfrozen')
+                    # pbar.log_message(name + ' is unfrozen')
                     for param in child.parameters():
                         param.requires_grad = True
                 else:
-                    # pbar_log.log_message(name + ' are frozen')
+                    # pbar.log_message(name + ' are frozen')
                     for m in child:
                         for param in m.features.parameters():
                             param.requires_grad = False
         if epoch == 11:
-            # pbar_log.log_message("Turn on all the layers")
+            # pbar.log_message("Turn on all the layers")
             for m in model.features:  # module.
                 for param in m.features.parameters():
                     param.requires_grad = True
@@ -370,8 +370,8 @@ def run(train_batch_size, val_batch_size, epochs, lr, log_interval, channels, cl
     def log_training_loss(engine):
         iter = (engine.state.iteration - 1) % len(train_loader) + 1
         # === ADDED FOR DISTRIBUTED >>>
-        if args.distributed:
-            train_sampler.set_epoch(iter + 1)
+        # if args.distributed:
+        #     train_sampler.set_epoch(iter + 1)
         # >>> ADDED FOR DISTRIBUTED ===
 
         if iter % log_interval == 0:
@@ -396,16 +396,16 @@ def run(train_batch_size, val_batch_size, epochs, lr, log_interval, channels, cl
     #         torch.save(model, config.storage / 'model.pth')
     # average loss and accuracy of the training and validation
 
-    @trainer.on(Events.EPOCH_COMPLETED)
-    def log_training_results(engine):
-        pbar.refresh()
-        metrics = val_evaluator.run(train_loader).metrics
-        tqdm.write(
-            "Training Results - Epoch: {}  Average Loss: {:.4f} | Accuracy: {:.4f} "
-            .format(engine.state.epoch, 
-                metrics["loss"], 
-                metrics["accuracy"] )
-        )
+    # @trainer.on(Events.EPOCH_COMPLETED)
+    # def log_training_results(engine):
+    #     # pbar.refresh()
+    #     metrics = val_evaluator.run(train_loader).metrics
+    #     tqdm.write(
+    #         "Training Results - Epoch: {}  Average Loss: {:.4f} | Accuracy: {:.4f} "
+    #         .format(engine.state.epoch, 
+    #             metrics["loss"], 
+    #             metrics["accuracy"] )
+    #     )
     @trainer.on(Events.EPOCH_COMPLETED)
     def compute_and_display_val_metrics(engine):
         metrics = val_evaluator.run(val_loader).metrics
@@ -425,17 +425,66 @@ def run(train_batch_size, val_batch_size, epochs, lr, log_interval, channels, cl
     def update_lr_scheduler(engine):
         lr_scheduler.step()
         lr = float(optimizer.param_groups[0]['lr'])
-        print("Learning rate: {}".format(lr))
+        tqdm.write("Learning rate: {}".format(lr))
 
     # early stopping handles
     handler = EarlyStopping(patience=3, score_function=lambda engine: engine.state.metrics['accuracy'], trainer=trainer)
     val_evaluator.add_event_handler(Events.COMPLETED, handler)
 
-    checkpoints = ModelCheckpoint('models', 'Model_{}'.format(''.join([str(i) for i in channels])), save_interval=3, n_saved=3, create_dir=True, require_empty=False)
+    checkpoints = ModelCheckpoint('models', 'Model_{}'.format(''.join([str(i) for i in channels])), save_interval=1, n_saved=6, create_dir=True, require_empty=False)
     trainer.add_event_handler(Events.EPOCH_COMPLETED, checkpoints, {'DenseNet121': model})
 
     trainer.run(train_loader, max_epochs=epochs)
     pbar.close()
+
+def pred(batch_size, log_interval, channels, classes):
+
+    # load model
+    model = PredictModel(classes, len(channels))
+
+    checkpoint = torch.load('models/Model_{}_DenseNet121.pth'.format(''.join([str(i) for i in channels])))
+    model.load_state_dict(checkpoint)
+
+    if torch.cuda.is_available():
+        device = "cuda"
+        model.cuda(args.gpu)
+    else:
+        device = "cpu"
+
+    # load data
+    df_test = pd.read_csv(path_data+'/test.csv')
+    ds_test = ImagesDS(df_test, path_data, mode='test', channels=channels)
+    test_loader = D.DataLoader(ds_test, batch_size=batch_size, shuffle=False, num_workers=0)
+
+    pbar = tqdm(
+        initial=0, leave=False, total=len(test_loader),
+    )
+
+    @torch.no_grad()
+    def prediction(model, loader, log_interval=log_interval):
+        preds = np.empty(0)
+        for i, (x, _) in enumerate(loader): 
+            x = x.to(device)
+            output = model(x)
+            idx = output.max(dim=-1)[1].cpu().numpy()
+            preds = np.append(preds, idx, axis=0)  
+            iter = i % len(loader) + 1
+            if iter % log_interval == 0:
+                pbar.update(log_interval)
+        return preds
+
+    preds = prediction(model, test_loader)
+    n_sample = df_test.shape[0]
+    ptest = np.zeros(n_sample)
+    n_rep = len(preds)//n_sample # 18 predictions for each class
+    for i in range(n_sample):
+        (values,counts) = np.unique(preds[i*n_rep:(i+1)*n_rep],return_counts=True)
+        ind=np.argmax(counts)
+        ptest[i] = values[ind]
+
+    submission = pd.read_csv(path_data + '/test.csv')
+    submission['sirna'] = ptest.astype(int)
+    submission.to_csv('submission.csv', index=False, columns=['id_code','sirna'])
 
 # batch_size = 64
 # val_batch_size = 1000
@@ -446,6 +495,8 @@ def run(train_batch_size, val_batch_size, epochs, lr, log_interval, channels, cl
 # channels = [1,2,3,4,5,6]
 if __name__ == "__main__":
     parser = ArgumentParser()
+    parser.add_argument("--prediction", type=bool, default=False,
+                        help="to do prediction with model (default: False")
     parser.add_argument("--batch_size", type=int, default=32,
                         help="input batch size for training (default: 32)")
     parser.add_argument("--val_batch_size", type=int, default=200,
@@ -475,36 +526,15 @@ if __name__ == "__main__":
     args.distributed = args.world_size > 1
 
     torch.cuda.set_device(args.gpu)
-    if args.distributed:
-        torch.distributed.init_process_group(args.dist_backend,
-                                             init_method=args.dist_method,
-                                             world_size=args.world_size, rank=args.rank)
+    # if args.distributed:
+    #     torch.distributed.init_process_group(args.dist_backend,
+    #                                          init_method=args.dist_method,
+    #                                          world_size=args.world_size, rank=args.rank)
     # >>> ADDED FOR DISTRIBUTED ===
 
-    run(args.batch_size, args.val_batch_size, args.epochs, args.lr, 
-        args.log_interval, [int(i) for i in args.channels.split(',')], args.classes)
-
-# @torch.no_grad()
-# def prediction(model, loader):
-#     preds = np.empty(0)
-#     for x, _ in loader: 
-#         x = x.to(device)
-#         output = model(x)
-#         idx = output.max(dim=-1)[1].cpu().numpy()
-#         preds = np.append(preds, idx, axis=0)
-#     return preds
-
-# preds = prediction(model, test_loader)
-
-# model.eval()
-# with torch.no_grad():
-#     preds = np.empty(0)
-#     for x, _ in tqdm_notebook(tloader): 
-#         x = x.to(device)
-#         output = model(x)
-#         idx = output.max(dim=-1)[1].cpu().numpy()
-#         preds = np.append(preds, idx, axis=0)
-
-# submission = pd.read_csv(path_data + '/test.csv')
-# submission['sirna'] = preds.astype(int)
-# submission.to_csv('submission.csv', index=False, columns=['id_code','sirna'])
+    if not args.prediction:
+        run(args.batch_size, args.val_batch_size, args.epochs, args.lr, 
+                args.log_interval, [int(i) for i in args.channels.split(',')], args.classes)
+    else:
+        pred(args.batch_size, args.log_interval, 
+                [int(i) for i in args.channels.split(',')], args.classes)
