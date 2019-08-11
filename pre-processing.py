@@ -186,6 +186,91 @@ def create_subsample_2d(img, output_w,output_h,stride,padding = 0,auto_extra_pad
 
     return imgs
 
+def create_subsample_3d(img, output_w,output_h,stride,padding = 0,auto_extra_padding=True):
+    '''
+    Input:
+        Image tensor
+        output_w: output width
+        output_h: output_height
+        stride
+        padding: default = 0
+        auto_extra_padding: default true
+     
+    Output:
+        A list of imgs
+        
+    Example:
+        create_subsample(img,200,200,150,0)
+    
+    '''
+    '''
+    Input:
+        Image tensor
+    
+    '''
+    # Size check
+    img_c, img_w, img_h = img.shape
+    if (img_w + 2* padding) < output_w and (img_h + 2* padding) < output_h :
+        raise ValueError('Input image with padding is smaller than output size')
+    
+    
+    # Add padding  
+    if padding != 0:
+        img_n = np.zeros([img_c, (img_w+padding*2), (img_h+padding*2)], dtype=np.float32)  
+        img_n[:, padding:-padding, padding:-padding] = img  
+    
+        img_c, img_n_w, img_n_h = img_n.shape
+    else:
+        img_n = img
+        img_n_w, img_n_h = (img_w, img_h)
+    # Create subsamples
+    
+    # Initialize pointers
+    x_pt = 0
+    y_pt = 0
+    imgs = []
+    
+    # --- Move on x
+    while( (x_pt + output_w) < img_n_w):
+        
+        # --- Move on y 
+        y_pt = 0
+        while ((y_pt + output_h) < img_n_h):
+            imgs.append(img_n[:, x_pt:(x_pt+output_w), y_pt:(y_pt+output_h)])
+            # Move pointer
+            y_pt = y_pt + stride
+        # --- End Move on y
+
+        if (auto_extra_padding):
+            _row = np.zeros([img_c, (output_w), (output_h)], dtype=np.float32)  
+            _row[:, :, 0:(img_n_h - y_pt)] = img_n[:, x_pt:(x_pt+output_w), y_pt:]
+            imgs.append(_row)
+  
+        x_pt = x_pt + stride
+    # --- End Move on x
+    
+    
+    if (auto_extra_padding):
+        _col = np.zeros([img_c, (output_w), (img_n_h)], dtype=np.float32) 
+        _col[:, 0:(img_n_w - x_pt), :] = img_n[:, x_pt:,:]
+        
+        # --- Move on y 
+        y_pt = 0
+        while ((y_pt + output_h) < img_n_h):
+            imgs.append(_col[:, :, y_pt:(y_pt+output_h)])
+            # Move pointer
+            y_pt = y_pt + stride
+        # --- End Move on y
+
+        if (auto_extra_padding):
+            _row = np.zeros([img_c, (output_w),(output_h)], dtype=np.float32)  
+            _row[:, :, 0:(img_n_h - y_pt)] = img_n[:, x_pt:(x_pt+output_w), y_pt:]
+            imgs.append(_row)
+
+    return imgs
+
+
+
 class Row_dumper(Thread):
     
     def __init__(self,queue, dcate,output_w,output_h,stride,data_root_path,data_new_root_path):
@@ -211,12 +296,17 @@ class Row_dumper(Thread):
         cell, batch = tuple(row['experiment'].split("-"))
         imgs = load_image(f'{self.data_root_path}/{self.dcate}', cell, batch, row['plate'],row['well'])
         for site in range(0,2):
-            for channel in range(0,6):
-                subimgs = create_subsample_2d(imgs[site][channel], self.output_w,self.output_h,self.stride)
-                for sub_idx, subimg in enumerate(subimgs):
-                    _fname = "{}/{}_s{}_w{}_{:02d}".format(_path,row['well'],(site+1),(channel+1),sub_idx)
+            subimgs = create_subsample_3d(np.array(imgs[site]), self.output_w,self.output_h,self.stride)
+            for sub_idx, subimg in enumerate(subimgs):
+                _fname = "{}/{}_s{}_{:02d}".format(_path,row['well'],(site+1),sub_idx)
+                np.save(_fname,subimg)
+            
+#            for channel in range(0,6):
+#                subimgs = create_subsample_2d(imgs[site][channel], self.output_w,self.output_h,self.stride)
+#                for sub_idx, subimg in enumerate(subimgs):
+#                    _fname = "{}/{}_s{}_w{}_{:02d}".format(_path,row['well'],(site+1),(channel+1),sub_idx)
+#                    np.save(_fname,subimg)
                     
-                    np.save(_fname,subimg)
     
     
     
