@@ -37,6 +37,11 @@ from sklearn.model_selection import train_test_split
 import warnings
 warnings.filterwarnings('ignore')
 
+# import psutil
+
+# OMP_NUM_THREADS=1
+torch.set_num_threads(1)
+
 path_data = '/data1/lyan/CellularImage/20190721/processed'
 # device = 'cuda'
 torch.manual_seed(0)
@@ -93,9 +98,11 @@ class ImagesDS(D.Dataset):
 
     # subsampling needed
     def __getitem__(self, index):
+        # t0 = time()
         path = self._get_img_path(index)
         img = self._load_img_as_tensor(path)
-        img = torch.cat([img[i,...].unsqueeze(0) for i in self.channels])  #  img[self.channels,...]  #
+        # t1 = time()
+        img = torch.cat([img[i,...].unsqueeze(0) for i in self.channels])  #  img[self.channels,...]  # 
         if self.mode == 'train':
             return img.to(self.device), torch.tensor(self.records[index].sirna).long().to(self.device)
         else:
@@ -250,15 +257,6 @@ def run(train_batch_size, val_batch_size, epochs, lr, log_interval, channels, cl
         acc = np.zeros(1)
         t0 = time()
         for i, (x, y) in enumerate(train_loader): 
-            # cuda_check = x.is_cuda
-            # if cuda_check:
-            #     x_device = x.get_device()
-            # cuda_check = y.is_cuda
-            # if cuda_check:
-            #     y_device = y.get_device()
-            # cuda_check = model.is_cuda
-            # if cuda_check:
-            #     model_device = model.get_device()
             t1 = time()
             optimizer.zero_grad()
             output = model(x)
@@ -275,10 +273,11 @@ def run(train_batch_size, val_batch_size, epochs, lr, log_interval, channels, cl
             del loss, output, y, x
             torch.cuda.empty_cache()
             if i % log_interval == 0:
-                print(t1-t0, t2-t1, t3-t2)
-                # print(f'x:{x_device}, y:{y_device}')  # , model:{model_device}
                 pbar.desc = desc.format(tloss/(i+1))
                 pbar.update(log_interval) 
+                print(t1-t0, t2-t1, t3-t2)
+                # print(psutil.cpu_percent())
+                # print(psutil.virtual_memory())  # physical memory usage
             t0 = time()  
         # save checkpoints
         if (epoch+1)%save_interval==0:
