@@ -14,7 +14,7 @@ from tqdm import tqdm
 from queue import Queue
 from threading import Thread
 import h5py 
-
+import torch
 
 
 def detect_nucleolus(img):
@@ -294,8 +294,10 @@ class Row_dumper(Thread):
         for site in range(0,2):
             subimgs = create_subsample_3d(np.array(imgs[site]), self.output_w,self.output_h,self.stride)
             for sub_idx, subimg in enumerate(subimgs):
-                _fname = "{}/{}_s{}_{:02d}".format(_path,row['well'],(site+1),sub_idx)
-                np.save(_fname,subimg.astype(np.uint8))
+                _fname = "{}/{}_s{}_{:02d}.pt".format(_path,row['well'],(site+1),sub_idx)
+                torch.save(torch.from_numpy(subimg.astype(np.uint8)),_fname)
+                
+                #np.save(_fname,subimg.astype(np.uint8))
 #            for channel in range(0,6):
 #                subimgs = create_subsample_2d(imgs[site][channel], self.output_w,self.output_h,self.stride)
 #                for sub_idx, subimg in enumerate(subimgs):
@@ -324,19 +326,11 @@ def _dump_subsample(df,dcate,output_w,output_h,stride,data_root_path,data_new_ro
 
 def dump_subsample(output_w,output_h,stride,data_root_path,data_new_root_path):
     # Load CSV files
-    #df_train = pd.read_csv(f'{data_root_path}/train.csv')
+    df_train = pd.read_csv(f'{data_root_path}/train.csv')
     df_test = pd.read_csv(f'{data_root_path}/test.csv')
     
-    #_dump_subsample(df_train,"train",output_w,output_h,stride,data_root_path,data_new_root_path)
+    _dump_subsample(df_train,"train",output_w,output_h,stride,data_root_path,data_new_root_path)
     _dump_subsample(df_test,"test",output_w,output_h,stride,data_root_path,data_new_root_path)
-
-def get_h5_handle(path_name, readonly = True):
-    if readonly:
-        arg = 'r'
-    else:
-        arg = 'w'
-        
-    return h5py.File(path_name, arg)
 
 
 if __name__ == "__main__":
@@ -344,9 +338,12 @@ if __name__ == "__main__":
     output_h = 224
     stride = 144
     
-    data_root_path = "/data1/lyan/CellularImage/20190721/RecursionCellClass"
-    data_new_root_path = "/data1/lyan/CellularImage/20190721/processed"
+    #data_root_path = "/data1/lyan/CellularImage/20190721/RecursionCellClass"
+    #data_new_root_path = "/data1/lyan/CellularImage/20190721/processed"
     
+    data_root_path = "../data/kaggle/reccell/recursion-cellular-image-classification"
+    data_new_root_path = "../data/kaggle/reccell/data"
+
     if not os.path.exists(data_new_root_path):
         os.makedirs(data_new_root_path)
     
