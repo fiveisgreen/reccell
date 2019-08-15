@@ -13,6 +13,7 @@ import os
 from tqdm import tqdm
 from queue import Queue
 from threading import Thread
+import h5py 
 
 
 
@@ -294,7 +295,7 @@ class Row_dumper(Thread):
             subimgs = create_subsample_3d(np.array(imgs[site]), self.output_w,self.output_h,self.stride)
             for sub_idx, subimg in enumerate(subimgs):
                 _fname = "{}/{}_s{}_{:02d}".format(_path,row['well'],(site+1),sub_idx)
-                np.save(_fname,subimg)
+                np.save(_fname,subimg.astype(np.uint8))
 #            for channel in range(0,6):
 #                subimgs = create_subsample_2d(imgs[site][channel], self.output_w,self.output_h,self.stride)
 #                for sub_idx, subimg in enumerate(subimgs):
@@ -323,12 +324,19 @@ def _dump_subsample(df,dcate,output_w,output_h,stride,data_root_path,data_new_ro
 
 def dump_subsample(output_w,output_h,stride,data_root_path,data_new_root_path):
     # Load CSV files
-    df_train = pd.read_csv(f'{data_root_path}/train.csv')
+    #df_train = pd.read_csv(f'{data_root_path}/train.csv')
     df_test = pd.read_csv(f'{data_root_path}/test.csv')
     
-    _dump_subsample(df_train,"train",output_w,output_h,stride,data_root_path,data_new_root_path)
+    #_dump_subsample(df_train,"train",output_w,output_h,stride,data_root_path,data_new_root_path)
     _dump_subsample(df_test,"test",output_w,output_h,stride,data_root_path,data_new_root_path)
 
+def get_h5_handle(path_name, readonly = True):
+    if readonly:
+        arg = 'r'
+    else:
+        arg = 'w'
+        
+    return h5py.File(path_name, arg)
 
 
 if __name__ == "__main__":
