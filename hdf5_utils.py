@@ -19,4 +19,4 @@ def get_h5_handle(path_name, readonly = True):
     return h5py.File(path_name, arg)
 
 
-def 
+    
