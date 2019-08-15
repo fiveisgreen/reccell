@@ -294,7 +294,7 @@ class Row_dumper(Thread):
             subimgs = create_subsample_3d(np.array(imgs[site]), self.output_w,self.output_h,self.stride)
             for sub_idx, subimg in enumerate(subimgs):
                 _fname = "{}/{}_s{}_{:02d}".format(_path,row['well'],(site+1),sub_idx)
-                np.save(_fname,subimg)
+                np.save(_fname,subimg.astype(np.uint8))
 #            for channel in range(0,6):
 #                subimgs = create_subsample_2d(imgs[site][channel], self.output_w,self.output_h,self.stride)
 #                for sub_idx, subimg in enumerate(subimgs):
@@ -336,8 +336,8 @@ if __name__ == "__main__":
     output_h = 224
     stride = 144
     
-    data_root_path = "../data/kaggle/reccell/recursion-cellular-image-classification"
-    data_new_root_path = "../data/kaggle/reccell/processed_data"
+    data_root_path = "/data1/lyan/CellularImage/20190721/RecursionCellClass"
+    data_new_root_path = "/data1/lyan/CellularImage/20190721/processed"
     
     if not os.path.exists(data_new_root_path):
         os.makedirs(data_new_root_path)
