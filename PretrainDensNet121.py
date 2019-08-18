@@ -41,8 +41,9 @@ warnings.filterwarnings('ignore')
 
 # OMP_NUM_THREADS=1
 torch.set_num_threads(1)
+torch.backends.cudnn.benchmark = True
 
-path_data = '/data1/lyan/CellularImage/20190721/processed'
+path_data = '/data1/lyan/CellularImage/20190721/processed'  # '/home/lyan/Documents/CellAna/data/processed'  # 
 # device = 'cuda'
 torch.manual_seed(0)
 
@@ -102,11 +103,12 @@ class ImagesDS(D.Dataset):
         path = self._get_img_path(index)
         img = self._load_img_as_tensor(path)
         # t1 = time()
-        img = torch.cat([img[i,...].unsqueeze(0) for i in self.channels])  #  img[self.channels,...]  # 
+        img = img[self.channels,...] # torch.cat([img[i,...].unsqueeze(0) for i in self.channels])  #  img[self.channels,...]  # 
+        # print(t1-t0, time()-t1)
         if self.mode == 'train':
-            return img.to(self.device), torch.tensor(self.records[index].sirna).long().to(self.device)
+            return img, self.records[index].sirna #.to(self.device), torch.tensor(self.records[index].sirna).long().to(self.device)
         else:
-            return img.to(self.device), torch.tensor(self.records[index].plate).long().to(self.device)
+            return img, 1139 #.to(self.device), torch.tensor(self.records[index].plate).long().to(self.device)
 
     def __len__(self):
         return self.len
@@ -115,19 +117,21 @@ def get_data_loaders(train_batch_size, val_batch_size, channels, classes, device
     # data loaders using ImagesDS class
     
     if classes > 1108:
-        df = pd.read_csv(path_data+'/train_withControls.csv')
+        df_train = pd.read_csv(path_data+'/train_withControls.csv')
+        df_val = pd.read_csv(path_data+'/validation_withControls.csv')
     else:
-        df = pd.read_csv(path_data+'/train.csv')
-    df_train, df_val = train_test_split(df, test_size = 0.10, stratify = df.sirna, random_state=42)
+        df_train = pd.read_csv(path_data+'/train.csv')
+        df_val = pd.read_csv(path_data+'/validation.csv')
+    # df_train, df_val = train_test_split(df, test_size = 0.10, stratify = df.sirna, random_state=42)
     # df_test = pd.read_csv(path_data+'/test.csv')
 
     ds = ImagesDS(df_train, mode='train', channels=channels, device=device)
     ds_val = ImagesDS(df_val, mode='train', channels=channels, device=device)
     # ds_test = ImagesDS(df_test, path_data, mode='test', channels=channels)
 
-    train_loader = D.DataLoader(ds, sampler=None, batch_size=train_batch_size, shuffle=True)
+    train_loader = D.DataLoader(ds, sampler=None, batch_size=train_batch_size, shuffle=True, num_workers=0, pin_memory=True)
 
-    val_loader = D.DataLoader(ds_val, batch_size=val_batch_size, shuffle=False)
+    val_loader = D.DataLoader(ds_val, batch_size=val_batch_size, shuffle=False, num_workers=0, pin_memory=True)
 
     return train_loader, val_loader
 
@@ -147,14 +151,14 @@ class DenseNetModel(nn.Module):
         # self.features.classifier = nn.Softmax()
         del preloaded
 
-    def save_checkpoint(self, cpfile='models/Model_pretrained_DenseNet121.pth'):
-        # checkpoint = torch.load(cpfile)
-        # self.model.load_state_dict(checkpoint)
-        torch.save(self.model.state_dict(), cpfile)
+    # def save_checkpoint(self, cpfile='models/Model_pretrained_DenseNet121.pth'):
+    #     # checkpoint = torch.load(cpfile)
+    #     # self.model.load_state_dict(checkpoint)
+    #     torch.save(self.state_dict(), cpfile)
 
-    def load_checkpoint(self, cpfile='models/Model_pretrained_DenseNet121.pth'):
-        checkpoint = torch.load(cpfile)
-        self.model.load_state_dict(checkpoint)
+    # def load_checkpoint(self, cpfile='models/Model_pretrained_DenseNet121.pth'):
+    #     checkpoint = torch.load(cpfile)
+    #     self.load_state_dict(checkpoint)
 
     def forward(self, x):
         features = self.features(x)
@@ -191,7 +195,8 @@ def run(train_batch_size, val_batch_size, epochs, lr, log_interval, channels, cl
             cpfile = 'models/'+args.checkpoint+'.pth'
         else:
             cpfile = 'models/Model_pretrained_DenseNet121.pth'
-        model.load_checkpoint(cpfile)
+        checkpoint = torch.load(cpfile)
+        model.load_state_dict(checkpoint)
 
     # to gpu
     if torch.cuda.is_available():
@@ -257,6 +262,8 @@ def run(train_batch_size, val_batch_size, epochs, lr, log_interval, channels, cl
         acc = np.zeros(1)
         t0 = time()
         for i, (x, y) in enumerate(train_loader): 
+            x = x.to(device)
+            y = torch.tensor(y).long().to(device)
             t1 = time()
             optimizer.zero_grad()
             output = model(x)
@@ -275,14 +282,14 @@ def run(train_batch_size, val_batch_size, epochs, lr, log_interval, channels, cl
             if i % log_interval == 0:
                 pbar.desc = desc.format(tloss/(i+1))
                 pbar.update(log_interval) 
-                print(t1-t0, t2-t1, t3-t2)
+                # print(t1-t0, t2-t1, t3-t2)
                 # print(psutil.cpu_percent())
                 # print(psutil.virtual_memory())  # physical memory usage
             t0 = time()  
         # save checkpoints
         if (epoch+1)%save_interval==0:
             ch = ''.join([str(i+1) for i in channels])
-            model.save_checkpoint(f'models/Model_pretrained_{ch}_DenseNet121_{epoch+1}.pth')
+            torch.save(model.state_dict(), f'models/Model_pretrained_{ch}_DenseNet121_{epoch+1}.pth')
             if (epoch+1)//save_interval>n_saved:
                 os.remove(f'models/Model_pretrained_{ch}_DenseNet121_{epoch+1-save_interval*n_saved}.pth')
 
@@ -290,7 +297,9 @@ def run(train_batch_size, val_batch_size, epochs, lr, log_interval, channels, cl
         vloss = 0
         vacc  = np.zeros(1)
         for i, (x, y) in enumerate(val_loader): 
-            # optimizer.zero_grad()
+            x = x.to(device)
+            y = torch.tensor(y).long().to(device)
+            optimizer.zero_grad()
             output = model(x)
             loss = criterion(output, y)
             vloss += loss.item() 
@@ -302,6 +311,8 @@ def run(train_batch_size, val_batch_size, epochs, lr, log_interval, channels, cl
         print('Epoch {} -> Train Loss: {:.4f}, ACC: {:.2f}%'.format(epoch+1, tloss/tlen, acc[0]/tlen))
         print('Epoch {} -> Validation Loss: {:.4f}, ACC: {:.2f}%'.format(epoch+1, vloss/vlen, vacc[0]/vlen))
 
+        # set process bar
+        pbar.n = pbar.last_print_n = 0
         # stop training if vloss keeps increasing for patience
         if epoch>=patience and all([vl_track[-1-i]>vl_track[-2-i] for i in range(patience-1)]):
             break
