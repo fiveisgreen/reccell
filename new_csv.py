@@ -66,7 +66,7 @@ df = pd.concat([df, df0], ignore_index=True)
 dfv = pd.concat([dfv, dfv0], ignore_index=True)
 
 df.to_csv(os.path.join(data_new_path, 'train.csv'), index=False)
-df.to_csv(os.path.join(data_new_path, 'validation.csv'), index=False)
+dfv.to_csv(os.path.join(data_new_path, 'validation.csv'), index=False)
 
 df_new = pd.DataFrame(columns=df.columns)
 df0 = pd.DataFrame(columns=df.columns)
