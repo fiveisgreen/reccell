@@ -18,163 +18,69 @@ import time
 data_path = '/data1/lyan/CellularImage/20190721/RecursionCellClass' # 'aydin'  # 
 data_new_path = '/data1/lyan/CellularImage/20190721/processed'
 
+exps = ['HEPG2-07', 'HUVEC-15', 'HUVEC-16', 'RPE-07', 'U2OS-03']  # exps for validation 
+
 df_train = pd.read_csv(os.path.join(data_path, 'train.csv'))
 df_control = pd.read_csv(os.path.join(data_path, 'train_controls.csv'))  # useful to train feature extractors
 df_tcontrol = pd.read_csv(os.path.join(data_path, 'test_controls.csv'))
 # df_control = pd.concat([df_control, df_tcontrol], ignore_index=True)
 
-exps = ['HEPG2-07', 'HUVEC-15', 'HUVEC-16', 'RPE-07', 'U2OS-03']  # for validation 
-
 df_test = pd.read_csv(os.path.join(data_path, 'test.csv'))
 
-count = 0
+def createpath(row):
+    return os.path.join(data_new_path, 'train', row['experiment'], 'Plate{}'.format(row['plate']), '{}_s{}_0{}.pt'.format(row['well'], row['site'], row['patch']))
+
+# df['path'] = df.apply(createpath, axis=1)
+
+# df  = pd.DataFrame({'id_code':[], 'experiment':[], 'plate':[], 'well':[], 'site':[], 'patch':[], 'path':[], 'sirna':[]})
+
+def newcsv(df):
+    df_new = pd.DataFrame()
+    for s in [1, 2]:
+        for i in range(9):
+            df0 = df.copy()
+            df0['site'] = s
+            df0['patch'] = i
+            df0['path'] = df0.apply(createpath, axis=1)
+            df_new = pd.concat([df_new, df0], ignore_index=True)
+    return df_new
+
+
 t0 = time.time()
-# path stores the path to the image file
-df  = pd.DataFrame({'id_code':[], 'experiment':[], 'plate':[], 'well':[], 'site':[], 'patch':[], 'path':[], 'sirna':[]})
-dfv = pd.DataFrame(columns=df.columns)
-df0 = pd.DataFrame(columns=df.columns)
-dfv0 = pd.DataFrame(columns=df.columns)
-# r=root, d=directories, f = files
-for index, row in df_train.iterrows():
-    exp = row['experiment']
-    plate = row['plate']
-    well = row['well']
-    for s in [1,2]:
-        for i in range(9):
-            if count>0 and count%1000==0:
-                df = pd.concat([df, df0], ignore_index=True)
-                dfv = pd.concat([dfv, dfv0], ignore_index=True)
-                df0 = pd.DataFrame(columns=df.columns)
-                dfv0 = pd.DataFrame(columns=df.columns)
-                print(count, time.time()-t0)
-                t0 = time.time()
 
-            path = os.path.join(data_new_path, 'train', row['experiment'], f'Plate{plate}', f'{well}_s{s}_0{i}.pt')
-            if os.path.isfile(path):
-                df1 = pd.DataFrame({'id_code':[row['id_code']], 'experiment':[row['experiment']], 'plate':[plate], 'well':[well], 
-                                    'site':[s], 'patch':[i], 'path':[path], 
-                                    'sirna':[row['sirna']]})
-                if exp in exps:
-                    dfv0 = dfv0.append(df1)
-                else:
-                    df0 = df0.append(df1)
-                count += 1
-            else:
-                print('Warning! lose path: '+path) 
+# separate validation from train
+df_val = pd.DataFrame(columns=df_train.columns)
+for expr in exps:
+    df_val = df_val.append(df_train.loc[df_train['experiment'] == expr])
+    df_train = df_train[df_train['experiment'] != expr]
 
-df = pd.concat([df, df0], ignore_index=True)
-dfv = pd.concat([dfv, dfv0], ignore_index=True)
+df_train = newcsv(df_train)
+df_val = newcsv(df_val)
 
-df.to_csv(os.path.join(data_new_path, 'train.csv'), index=False)
-dfv.to_csv(os.path.join(data_new_path, 'validation.csv'), index=False)
+df_train.to_csv(os.path.join(data_new_path, 'train.csv'), index=False)
+df_val.to_csv(os.path.join(data_new_path, 'validation.csv'), index=False)
 
-df_new = pd.DataFrame(columns=df.columns)
-df0 = pd.DataFrame(columns=df.columns)
-dfv_new = pd.DataFrame(columns=df.columns)
-dfv0 = pd.DataFrame(columns=df.columns)
-# r=root, d=directories, f = files
-for index, row in df_control.iterrows():
-    exp = row['experiment']
-    plate = row['plate']
-    well = row['well']
-    for s in [1,2]:
-        for i in range(9):
-            if count>0 and count%1000==0:
-                df_new = pd.concat([df_new, df0], ignore_index=True)
-                df0 = pd.DataFrame(columns=df.columns)
-                dfv_new = pd.concat([dfv_new, dfv0], ignore_index=True)
-                dfv0 = pd.DataFrame(columns=df.columns)
-                print(count, time.time()-t0)
-                t0 = time.time()
+t1 = time.time()
 
-            path = os.path.join(data_new_path, 'train', row['experiment'], f'Plate{plate}', f'{well}_s{s}_0{i}.pt')
-            if os.path.isfile(path):
-                df1 = pd.DataFrame({'id_code':[row['id_code']], 'experiment':[row['experiment']], 'plate':[plate], 'well':[well], 
-                                    'site':[s], 'patch':[i], 'path':[path], 
-                                    'sirna':[row['sirna']]})
-                if exp in exps:
-                    dfv0 = dfv0.append(df1)
-                else:
-                    df0 = df0.append(df1)
-                count += 1
-            else:
-                print('Warning! lose path: '+path) 
+# add controls
+df_val_control = pd.DataFrame(columns=df_train.columns)
+for expr in exps:
+    df_val_control = df_val_control.append(df_control.loc[df_control['experiment'] == expr])
+    df_control = df_control[df_control['experiment'] != expr]
 
-df_new = pd.concat([df_new, df0], ignore_index=True)
-dfv_new = pd.concat([dfv_new, dfv0], ignore_index=True)
+df_control = newcsv(df_control)
+df_tcontrol = newcsv(df_tcontrol)  # all controls from test goes to training
+df_val_control = newcsv(df_val_control)
 
-df = pd.concat([df, df_new], ignore_index=True)
-dfv = pd.concat([dfv, dfv_new], ignore_index=True)
+df_train = pd.concat([df_train, df_control, df_tcontrol], sort=False, ignore_index=True)
+df_val = pd.concat([df_val, df_val_control], sort=False, ignore_index=True)
 
-df_new = pd.DataFrame(columns=df.columns)
-df0 = pd.DataFrame(columns=df.columns)
-dfv_new = pd.DataFrame(columns=df.columns)
-dfv0 = pd.DataFrame(columns=df.columns)
-# r=root, d=directories, f = files
-for index, row in df_tcontrol.iterrows():
-    exp = row['experiment']
-    plate = row['plate']
-    well = row['well']
-    for s in [1,2]:
-        for i in range(9):
-            if count>0 and count%1000==0:
-                df_new = pd.concat([df_new, df0], ignore_index=True)
-                df0 = pd.DataFrame(columns=df.columns)
-                dfv_new = pd.concat([dfv_new, dfv0], ignore_index=True)
-                dfv0 = pd.DataFrame(columns=df.columns)
-                print(count, time.time()-t0)
-                t0 = time.time()
+df_train.to_csv(os.path.join(data_new_path, 'train_withControls.csv'), index=False)
+df_val.to_csv(os.path.join(data_new_path, 'validation_withControls.csv'), index=False)
 
-            path = os.path.join(data_new_path, 'test', row['experiment'], f'Plate{plate}', f'{well}_s{s}_0{i}.pt')
-            if os.path.isfile(path):
-                df1 = pd.DataFrame({'id_code':[row['id_code']], 'experiment':[row['experiment']], 'plate':[plate], 'well':[well], 
-                                    'site':[s], 'patch':[i], 'path':[path], 
-                                    'sirna':[row['sirna']]})
-                if exp in exps:
-                    dfv0 = dfv0.append(df1)
-                else:
-                    df0 = df0.append(df1)
-                count += 1
-            else:
-                print('Warning! lose path: '+path) 
-
-df_new = pd.concat([df_new, df0], ignore_index=True)
-dfv_new = pd.concat([dfv_new, dfv0], ignore_index=True)
-
-df = pd.concat([df, df_new], ignore_index=True)
-dfv = pd.concat([dfv, dfv_new], ignore_index=True)
-
-df.to_csv(os.path.join(data_new_path, 'train_withControls.csv'), index=False)
-dfv.to_csv(os.path.join(data_new_path, 'validation_withControls.csv'), index=False)
-
-
-count = 0
-t0 = time.time()
-df  = pd.DataFrame({'id_code':[], 'experiment':[], 'plate':[], 'well':[], 'site':[], 'patch':[], 'path':[]})
-df0 = pd.DataFrame(columns=df.columns)
-# r=root, d=directories, f = files
-for index, row in df_test.iterrows():
-    plate = row['plate']
-    well = row['well']
-    for s in [1,2]:
-        for i in range(9):
-            if count>0 and count%1000==0:
-                df = pd.concat([df, df0], ignore_index=True)
-                df0 = pd.DataFrame(columns=df.columns)
-                print(count, time.time()-t0)
-                t0 = time.time()
-
-            path = os.path.join(data_new_path, 'test', row['experiment'], f'Plate{plate}', f'{well}_s{s}_0{i}.pt')
-            if os.path.isfile(path):
-                df1 = pd.DataFrame({'id_code':[row['id_code']], 'experiment':[row['experiment']], 'plate':[plate], 'well':[well], 
-                                    'site':[s], 'patch':[i], 'path':[path]})
-                df0 = df0.append(df1)
-                count += 1
-            else:
-                print('Warning! lose path: '+path) 
-
-df = pd.concat([df, df0], ignore_index=True)
-df.to_csv(os.path.join(data_new_path, 'test.csv'), index=False)
+# make for test
+df_test = newcsv(df_test)
+df_test.to_csv(os.path.join(data_new_path, 'test.csv'), index=False)
 
 # load speed test
 # from PIL import Image
