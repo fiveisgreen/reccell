@@ -6,6 +6,7 @@ author: Le Yan, Paul Gu
 """
 import numpy as np 
 import pandas as pd
+import os
 
 from time import time
 
@@ -23,7 +24,7 @@ import torch.utils.data.distributed
 from torch.nn.parallel import DistributedDataParallel
 
 from torchvision import models, transforms as T
-from torchsummary import summary
+# from torchsummary import summary
 
 # from ignite.engine import Events, create_supervised_evaluator, create_supervised_trainer
 # from ignite.metrics import Loss, Accuracy
@@ -32,7 +33,7 @@ from torchsummary import summary
 
 from tqdm import tqdm, tqdm_notebook
 
-from sklearn.model_selection import train_test_split
+# from sklearn.model_selection import train_test_split
 
 import warnings
 warnings.filterwarnings('ignore')
@@ -43,7 +44,7 @@ warnings.filterwarnings('ignore')
 torch.set_num_threads(1)
 torch.backends.cudnn.benchmark = True
 
-path_data = '/data1/lyan/CellularImage/20190721/processed'  # '/home/lyan/Documents/CellAna/data/processed'  # 
+path_data = '/home/lyan/Documents/CellAna/data/processed'  # '/data1/lyan/CellularImage/20190721/processed'  # 
 # device = 'cuda'
 torch.manual_seed(0)
 
@@ -193,10 +194,14 @@ def run(train_batch_size, val_batch_size, epochs, lr, log_interval, channels, cl
     if args.pretrained:
         if len(args.checkpoint)>0:
             cpfile = 'models/'+args.checkpoint+'.pth'
+            ep0 = epoch = int(args.checkpoint.rsplit('_',1)[1])
         else:
             cpfile = 'models/Model_pretrained_DenseNet121.pth'
+            ep0 = epoch = 1
         checkpoint = torch.load(cpfile)
         model.load_state_dict(checkpoint)
+    else:
+        ep0 = epoch = 0
 
     # to gpu
     if torch.cuda.is_available():
@@ -236,7 +241,7 @@ def run(train_batch_size, val_batch_size, epochs, lr, log_interval, channels, cl
     tlen = len(train_loader)
     vlen = len(val_loader)
     # print(tlen)
-    for epoch in range(epochs):
+    while epoch < epochs:
         # frozen the pretrained layers, tran the fully connected classification layer
         print(f'{epoch+1}/{epochs}')
         print(f"Learning rate: {lr}")
@@ -285,7 +290,7 @@ def run(train_batch_size, val_batch_size, epochs, lr, log_interval, channels, cl
                 # print(t1-t0, t2-t1, t3-t2)
                 # print(psutil.cpu_percent())
                 # print(psutil.virtual_memory())  # physical memory usage
-            t0 = time()  
+ 
         # save checkpoints
         if (epoch+1)%save_interval==0:
             ch = ''.join([str(i+1) for i in channels])
@@ -312,15 +317,19 @@ def run(train_batch_size, val_batch_size, epochs, lr, log_interval, channels, cl
         print('Epoch {} -> Validation Loss: {:.4f}, ACC: {:.2f}%'.format(epoch+1, vloss/vlen, vacc[0]/vlen))
 
         # set process bar
+        pbar.desc = desc.format(tloss/(i+1))
+        pbar.update(log_interval) 
         pbar.n = pbar.last_print_n = 0
         # stop training if vloss keeps increasing for patience
-        if epoch>=patience and all([vl_track[-1-i]>vl_track[-2-i] for i in range(patience-1)]):
+        if epoch-ep0>=patience and all([vl_track[-1-i]>vl_track[-2-i] for i in range(patience-1)]):
             break
 
         # update learning
         if epoch>=burn:
             lr_scheduler.step()
             lr = float(optimizer.param_groups[0]['lr'])
+
+        epoch += 1
 
     # checkpoint ignite issue https://github.com/pytorch/ignite/pull/182
     pbar.close()
