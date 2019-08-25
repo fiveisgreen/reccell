@@ -1,19 +1,0 @@
-ITERATION - loss: 0.00:   0%|          | 0/17433 [00:00<?, ?it/s]ITERATION - loss: 6.92:   1%|          | 200/17433 [00:01<02:04, 138.11it/s]ITERATION - loss: 6.92:   1%|          | 200/17433 [00:19<02:04, 138.11it/s]ITERATION - loss: 7.85:   2%|▏         | 400/17433 [00:59<26:08, 10.86it/s] ITERATION - loss: 7.64:   3%|▎         | 600/17433 [01:58<43:02,  6.52it/s]ITERATION - loss: 7.56:   5%|▍         | 800/17433 [02:59<55:09,  5.03it/s]Traceback (most recent call last):
-  File "PretrainDensNet121.py", line 378, in <module>
-    args.log_interval, [int(i) for i in args.channels.split(',')], args.classes)
-  File "PretrainDensNet121.py", line 265, in run
-    for i, (x, y) in enumerate(train_loader): 
-  File "/home/zcgu/.conda/envs/tf/lib/python3.7/site-packages/torch/utils/data/dataloader.py", line 560, in __next__
-    batch = self.collate_fn([self.dataset[i] for i in indices])
-  File "/home/zcgu/.conda/envs/tf/lib/python3.7/site-packages/torch/utils/data/dataloader.py", line 560, in <listcomp>
-    batch = self.collate_fn([self.dataset[i] for i in indices])
-  File "PretrainDensNet121.py", line 105, in __getitem__
-    img = self._load_img_as_tensor(path)
-  File "PretrainDensNet121.py", line 96, in _load_img_as_tensor
-    return torch.load(file_name).float()/255. # torch.from_numpy(np.load(file_name)/255.).float() # normalize to [0,1]  
-  File "/home/zcgu/.conda/envs/tf/lib/python3.7/site-packages/torch/serialization.py", line 387, in load
-    return _load(f, map_location, pickle_module, **pickle_load_args)
-  File "/home/zcgu/.conda/envs/tf/lib/python3.7/site-packages/torch/serialization.py", line 581, in _load
-    deserialized_objects[key]._set_from_file(f, offset, f_should_read_directly)
-KeyboardInterrupt
-                                                                           
