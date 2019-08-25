@@ -23,7 +23,7 @@ import torch.utils.data.distributed
 from torch.nn.parallel import DistributedDataParallel
 
 from torchvision import models, transforms as T
-from torchsummary import summary
+# from torchsummary import summary
 
 # from ignite.engine import Events, create_supervised_evaluator, create_supervised_trainer
 # from ignite.metrics import Loss, Accuracy
@@ -43,7 +43,8 @@ warnings.filterwarnings('ignore')
 torch.set_num_threads(1)
 torch.backends.cudnn.benchmark = True
 
-path_data = '/data1/lyan/CellularImage/20190721/processed'  # '/home/lyan/Documents/CellAna/data/processed'  # 
+#path_data = '/data1/lyan/CellularImage/20190721/processed'  # '/home/lyan/Documents/CellAna/data/processed'  # 
+path_data = '../data/kaggle/reccell/data'
 # device = 'cuda'
 torch.manual_seed(0)
 

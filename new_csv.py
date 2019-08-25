@@ -15,8 +15,11 @@ import os
 import warnings
 import time
 
-data_path = '/data1/lyan/CellularImage/20190721/RecursionCellClass' # 'aydin'  # 
-data_new_path = '/data1/lyan/CellularImage/20190721/processed'
+#data_path = '/data1/lyan/CellularImage/20190721/RecursionCellClass' # 'aydin'  # 
+#data_new_path = '/data1/lyan/CellularImage/20190721/processed'
+data_path = '../data/kaggle/reccell/recursion-cellular-image-classification' # 'aydin'  # 
+data_new_path = '../data/kaggle/reccell/data'
+
 
 df_train = pd.read_csv(os.path.join(data_path, 'train.csv'))
 df_control = pd.read_csv(os.path.join(data_path, 'train_controls.csv'))  # useful to train feature extractors
