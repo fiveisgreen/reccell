@@ -6,10 +6,10 @@ Created on Fri Aug 16 00:22:14 2019
 @author: zcgu
 """
 
-import numpy as np
 import pandas as pd
 import os.path as op
 import argparse
+from sklearn.model_selection import train_test_split
 
 '''
 def preproc_csv_block(df, mode, data_path_root, num_sample = 9):
@@ -61,8 +61,9 @@ def preproc_csv(df, mode, data_path_root, num_sample, cell_split = False):
             dpath = op.join(data_path_root ,'{}_{}.csv'.format(mode,exp))
             df_cell.to_csv(dpath, index = False)
     else:
-        dpath = op.join(data_path_root , '{}_processed.csv'.format(mode))
+        dpath = op.join(data_path_root , '{}.csv'.format(mode))
         df.to_csv(dpath, index = False)
+
 
 if __name__ == "__main__":
     
@@ -95,9 +96,18 @@ if __name__ == "__main__":
     df_train_c = pd.read_csv(ftrain_c)
     df_test_c = pd.read_csv(ftest_c)
     
+    
     if args.include_control:
         df_train = pd.concat(df_train,df_train_c,ignore_index=True)
         df_test = pd.concat(df_test,df_test_c,ignore_index=True)
     
-    preproc_csv(df_train, "train",data_path_root, args.n_subsample,args.cell_type_split)
+    # Train-validation split at 20%
+    
+    df_train_n, df_val = train_test_split(df_train, test_size=0.2, random_state=42)
+    
+    df_train_n = df_train_n.copy()
+    df_val = df_val.copy()
+    
+    preproc_csv(df_train_n, "train",data_path_root, args.n_subsample,args.cell_type_split)
+    preproc_csv(df_val, "validation",data_path_root, args.n_subsample,args.cell_type_split)
     preproc_csv(df_test, "test",data_path_root, args.n_subsample,args.cell_type_split)

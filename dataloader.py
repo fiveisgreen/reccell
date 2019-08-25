@@ -31,11 +31,13 @@ class ImagesDS(D.Dataset):
         path = self._get_img_path(index)
         img = self._load_img_as_tensor(path)
         # t1 = time()
-        img = torch.cat([img[i,...].unsqueeze(0) for i in self.channels])  #  img[self.channels,...]  # 
+        img = img[self.channels,...] # torch.cat([img[i,...].unsqueeze(0) for i in self.channels])  #  img[self.channels,...]  # 
+        # print(t1-t0, time()-t1)
         if self.mode == 'train':
-            return img.to(self.device), torch.tensor(self.records[index].sirna).long().to(self.device)
+            return img, self.records[index].sirna #.to(self.device), torch.tensor(self.records[index].sirna).long().to(self.device)
         else:
-            return img.to(self.device), torch.tensor(self.records[index].plate).long().to(self.device)
+            return img, 1139 #.to(self.device), torch.tensor(self.records[index].plate).long().to(self.device)
 
     def __len__(self):
         return self.len
+        
