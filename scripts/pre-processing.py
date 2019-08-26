@@ -296,7 +296,10 @@ class Row_dumper(Thread):
             for sub_idx, subimg in enumerate(subimgs):
                 _fname = "{}/{}_s{}_{:02d}.pt".format(_path,row['well'],(site+1),sub_idx)
                 torch.save(torch.from_numpy(subimg.astype(np.uint8)),_fname)
-                
+                try:
+                    img_tmp = torch.load(_fname)
+                except:
+                    torch.save(torch.from_numpy(subimg.astype(np.float32)),_fname)
                 #np.save(_fname,subimg.astype(np.uint8))
 #            for channel in range(0,6):
 #                subimgs = create_subsample_2d(imgs[site][channel], self.output_w,self.output_h,self.stride)

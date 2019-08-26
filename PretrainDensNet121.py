@@ -32,6 +32,8 @@ from libs.models import DenseNetModel
 import warnings
 warnings.filterwarnings('ignore')
 
+# OMP_NUM_THREADS=1
+# MKL_NUM_THREADS=1
 torch.set_num_threads(1)
 torch.backends.cudnn.benchmark = True
 

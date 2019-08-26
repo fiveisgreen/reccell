@@ -9,6 +9,8 @@ Created on Thu Aug 15 21:40:40 2019
 import torch
 import torch.utils.data as D
 
+torch.set_num_threads(1)
+
 class ImagesDS(D.Dataset):
     # class to load training images
     def __init__(self, df, mode='train', channels=range(1,7), subsample=False, device='cpu', transform = None):
