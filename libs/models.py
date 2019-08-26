@@ -45,7 +45,6 @@ class DenseNetModel(nn.Module):
 
         self.fc = nn.Linear(1024, classes, bias=True).to(device)
         # self.features.classifier = nn.Softmax()
-        del preloaded
 
         self.forfeatures = forfeatures
 
@@ -53,7 +52,7 @@ class DenseNetModel(nn.Module):
         features = self.features(x)
         out = F.relu(features, inplace=True)
         out = F.adaptive_avg_pool2d(out, (1, 1)).view(features.size(0), -1)  # global average pooling
-        out = self.fc(features)
+        out = self.fc(out)
         if self.forfeatures:
             return out, features
         return out

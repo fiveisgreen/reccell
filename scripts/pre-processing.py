@@ -214,7 +214,7 @@ def create_subsample_3d(img, output_w,output_h,stride,padding = 0,auto_extra_pad
     
     # Add padding  
     if padding != 0:
-        img_n = np.zeros([img_c, (img_w+padding*2), (img_h+padding*2)], dtype=np.float32)  
+        img_n = np.zeros([img_c, (img_w+padding*2), (img_h+padding*2)], dtype=np.uint8)  
         img_n[:, padding:-padding, padding:-padding] = img  
     
         img_c, img_n_w, img_n_h = img_n.shape
@@ -240,7 +240,7 @@ def create_subsample_3d(img, output_w,output_h,stride,padding = 0,auto_extra_pad
         # --- End Move on y
 
         if (auto_extra_padding):
-            _row = np.zeros([img_c, (output_w), (output_h)], dtype=np.float32)  
+            _row = np.zeros([img_c, (output_w), (output_h)], dtype=np.uint8)  
             _row[:, :, 0:(img_n_h - y_pt)] = img_n[:, x_pt:(x_pt+output_w), y_pt:]
             imgs.append(_row)
   
@@ -249,7 +249,7 @@ def create_subsample_3d(img, output_w,output_h,stride,padding = 0,auto_extra_pad
     
     
     if (auto_extra_padding):
-        _col = np.zeros([img_c, (output_w), (img_n_h)], dtype=np.float32) 
+        _col = np.zeros([img_c, (output_w), (img_n_h)], dtype=np.uint8) 
         _col[:, 0:(img_n_w - x_pt), :] = img_n[:, x_pt:,:]
         
         # --- Move on y 
@@ -261,7 +261,7 @@ def create_subsample_3d(img, output_w,output_h,stride,padding = 0,auto_extra_pad
         # --- End Move on y
 
         if (auto_extra_padding):
-            _row = np.zeros([img_c, (output_w),(output_h)], dtype=np.float32)  
+            _row = np.zeros([img_c, (output_w),(output_h)], dtype=np.uint8)  
             _row[:, :, 0:(img_n_h - y_pt)] = img_n[:, x_pt:(x_pt+output_w), y_pt:]
             imgs.append(_row)
 

@@ -13,7 +13,7 @@ class ImagesDS(D.Dataset):
     # class to load training images
     def __init__(self, df, mode='train', channels=range(1,7), subsample=False, device='cpu', transform = None):
         self.records = df.to_records(index=False)
-        self.channels = [i-1 fo i in channels]
+        self.channels = [i-1 for i in channels]
         self.mode = mode
         self.device = device
         self.len = df.shape[0]

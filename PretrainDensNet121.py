@@ -27,10 +27,13 @@ from torch.nn.parallel import DistributedDataParallel
 from tqdm import tqdm, tqdm_notebook
 
 from libs.dataloader import ImagesDS
-from libs.model import DenseNetModel
+from libs.models import DenseNetModel
 
 import warnings
 warnings.filterwarnings('ignore')
+
+torch.set_num_threads(1)
+torch.backends.cudnn.benchmark = True
 
 def get_data_loaders(train_batch_size, val_batch_size, channels, classes, device='cpu'):
     # data loaders using ImagesDS class
@@ -69,7 +72,7 @@ def accuracy(output, target, topk=(1,)):
 
 def run(train_batch_size, val_batch_size, epochs, lr, log_interval, channels, classes):
     # load model
-    model = DenseNetModel(classes, len(channels))
+    model = DenseNetModel(classes, channels)
 
     # load saved weights
     if args.pretrained:
@@ -230,7 +233,7 @@ def savefeatures(df, features, ch):
 def pred(batch_size, log_interval, mode, channels, classes):
 
     # load model
-    model = DenseNetModel(classes, len(channels), forfeatures=True)
+    model = DenseNetModel(classes, channels, forfeatures=True)
 
     ch = ''.join([str(i) for i in channels])
     checkpoint = torch.load(f'models/Model_Pretrained_{ch}_DenseNet121.pth')
@@ -279,24 +282,24 @@ if __name__ == "__main__":
                         help="prediction mode (default: False)")
     parser.add_argument("--mode", type=str, default='train',
                         help="prediction mode (default: train)")
-    parser.add_argument("--batch_size", type=int, default=64,
-                        help="input batch size for training (default: 64)")
+    parser.add_argument("--batch_size", type=int, default=32,
+                        help="input batch size for training (default: 32)")
     parser.add_argument("--val_batch_size", type=int, default=64,
-                        help="input batch size for validation (default: 100)")
+                        help="input batch size for validation (default: 64)")
     parser.add_argument("--epochs", type=int, default=20,
                         help="number of epochs to train (default: 20)")
     parser.add_argument("--lr", type=float, default=0.001,
                         help="learning rate (default: 0.001)")
-    parser.add_argument("--log_interval", type=int, default=1000,
+    parser.add_argument("--log_interval", type=int, default=2000,
                         help="number of batches before logging training status")
-    parser.add_argument("--classes", type=int, default=1140,
+    parser.add_argument("--classes", type=int, default=1139,
                         help="number of classes to train (default: 1139)")
     parser.add_argument("--channels", type=str, default="1,2,3,4,5,6",
                         help="channels to train (default: channel 1,2,3,4,5,6)")
     parser.add_argument("--pretrained", type=bool, default=False,
-                        help="channels to train (default: false)")
+                        help="if model is pretrained (default: false)")
     parser.add_argument("--checkpoint", type=str, default='',
-                        help="channels to train (default: '')")
+                        help="path to the checkpoint of the pretrained model (default: '')")
     parser.add_argument("--num_workers", type=int, default=1, 
                         help="Number of CPUs to load data (default: 1)")
     parser.add_argument("--data_path", type=str, default='/home/lyan/Documents/CellAna/data/p128', 
@@ -317,10 +320,6 @@ if __name__ == "__main__":
 
     torch.cuda.set_device(args.gpu)
 
-    # OMP_NUM_THREADS=1
-    torch.set_num_threads(args.num_workers)
-    torch.backends.cudnn.benchmark = True
-
     # device = 'cuda'
     torch.manual_seed(0)
 
@@ -331,8 +330,8 @@ if __name__ == "__main__":
     # >>> ADDED FOR DISTRIBUTED ===
 
     if not args.prediction:
-        run(args.batch_size, args.val_batch_size, args.epochs, args.lr, 
-                    args.log_interval, [int(i) for i in args.channels.split(',')], args.classes)
+        run(args.batch_size, args.val_batch_size, args.epochs, args.lr, args.log_interval, 
+                    [int(i) for i in args.channels.split(',')], args.classes)
     else:
         pred(args.batch_size, args.log_interval, args.mode, 
                     [int(i) for i in args.channels.split(',')], args.classes)

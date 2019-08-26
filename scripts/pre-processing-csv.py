@@ -42,6 +42,8 @@ def preproc_csv(df, mode, data_path_root, num_sample, cell_split = False):
     df = pd.concat(df_list,ignore_index=True)
     
     def _createpath(row):
+        if mode=='validation':
+            return "{}/{}/{}/Plate{}/{}_s{}_{}.pt".format(data_path_root, 'train', row['experiment'],row['plate'],row['well'],row['site'],row['patch'])
         return "{}/{}/{}/Plate{}/{}_s{}_{}.pt".format(data_path_root, mode, row['experiment'],row['plate'],row['well'],row['site'],row['patch'])
     
     def _get_cell(row):
@@ -71,7 +73,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='path, data_path_root, split_cell = True/False')
     parser.add_argument("--path", type=str, default="/data1/lyan/CellularImage/20190721/RecursionCellClass/",
                         help="path to downloaded data")
-    parser.add_argument("--data_path_root", type=str, default="/home/lyan/Documents/CellAna/data/p128/",
+    parser.add_argument("--data_path_root", type=str, default="/home/lyan/Documents/CellAna/data/p128",
                         help="path to processed data")
     parser.add_argument("--n_subsample", type=int, default=16,
                         help="# of subsamples")
