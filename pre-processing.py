@@ -334,12 +334,12 @@ def dump_subsample(output_w,output_h,stride,data_root_path,data_new_root_path):
 
 
 if __name__ == "__main__":
-    output_w = 224
-    output_h = 224
-    stride = 144
+    output_w = 128
+    output_h = 128
+    stride = 128
     
     data_root_path = "/data1/lyan/CellularImage/20190721/RecursionCellClass"
-    data_new_root_path = "/data1/lyan/CellularImage/20190721/processed"
+    data_new_root_path = "/home/lyan/Documents/CellAna/data/p128"
     
     # data_root_path = "../data/kaggle/reccell/recursion-cellular-image-classification"
     # data_new_root_path = "../data/kaggle/reccell/data"

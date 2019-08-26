@@ -11,9 +11,9 @@ import torch.utils.data as D
 
 class ImagesDS(D.Dataset):
     # class to load training images
-    def __init__(self, df, mode='train', channels=range(6), subsample=False, device='cpu', transform = None):
+    def __init__(self, df, mode='train', channels=range(1,7), subsample=False, device='cpu', transform = None):
         self.records = df.to_records(index=False)
-        self.channels = channels
+        self.channels = [i-1 fo i in channels]
         self.mode = mode
         self.device = device
         self.len = df.shape[0]
@@ -41,7 +41,7 @@ class ImagesDS(D.Dataset):
         if self.mode == 'train':
             return img, self.records[index].sirna #.to(self.device), torch.tensor(self.records[index].sirna).long().to(self.device)
         else:
-            return img, 1139 #.to(self.device), torch.tensor(self.records[index].plate).long().to(self.device)
+            return img, 1138 #for unknown cells, torch.tensor(self.records[index].plate).long().to(self.device)
 
     def __len__(self):
         return self.len

@@ -69,15 +69,15 @@ if __name__ == "__main__":
     
        
     parser = argparse.ArgumentParser(description='path, data_path_root, split_cell = True/False')
-    parser.add_argument("--path", type=str, default="/home/zcgu/workspace/data/kaggle/reccell/recursion-cellular-image-classification/",
+    parser.add_argument("--path", type=str, default="/data1/lyan/CellularImage/20190721/RecursionCellClass/",
                         help="path to downloaded data")
-    parser.add_argument("--data_path_root", type=str, default="/home/zcgu/workspace/data/kaggle/reccell/data",
+    parser.add_argument("--data_path_root", type=str, default="/home/lyan/Documents/CellAna/data/p128/",
                         help="path to processed data")
     parser.add_argument("--n_subsample", type=int, default=16,
                         help="# of subsamples")
-    parser.add_argument("--cell_type_split", type=bool, default=True,
+    parser.add_argument("--cell_type_split", type=bool, default=False,
                     help="whether split train and test by cell_type")
-    parser.add_argument("--include_control", type=bool, default=False,
+    parser.add_argument("--include_control", type=bool, default=True,
                     help="whether include control")
     args = parser.parse_args()
     
@@ -98,16 +98,16 @@ if __name__ == "__main__":
     
     
     if args.include_control:
-        df_train = pd.concat(df_train,df_train_c,ignore_index=True)
-        df_test = pd.concat(df_test,df_test_c,ignore_index=True)
+        df_train = pd.concat([df_train,df_train_c],ignore_index=True)
+        df_test = pd.concat([df_test,df_test_c],ignore_index=True)
     
     # Train-validation split at 20%
     
-    df_train_n, df_val = train_test_split(df_train, test_size=0.2, random_state=42)
+    df_train_n, df_val = train_test_split(df_train, test_size=0.1, random_state=42)
     
     df_train_n = df_train_n.copy()
     df_val = df_val.copy()
     
-    preproc_csv(df_train_n, "train",data_path_root, args.n_subsample,args.cell_type_split)
-    preproc_csv(df_val, "validation",data_path_root, args.n_subsample,args.cell_type_split)
-    preproc_csv(df_test, "test",data_path_root, args.n_subsample,args.cell_type_split)
+    preproc_csv(df_train_n, "train", data_path_root, args.n_subsample, args.cell_type_split)
+    preproc_csv(df_val, "validation", data_path_root, args.n_subsample, args.cell_type_split)
+    preproc_csv(df_test, "test", data_path_root, args.n_subsample, args.cell_type_split)
