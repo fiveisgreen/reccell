@@ -11,12 +11,13 @@ import torch.utils.data as D
 
 class ImagesDS(D.Dataset):
     # class to load training images
-    def __init__(self, df, mode='train', channels=range(6), subsample=False, device='cpu'):
+    def __init__(self, df, mode='train', channels=range(6), subsample=False, device='cpu', transform = None):
         self.records = df.to_records(index=False)
         self.channels = channels
         self.mode = mode
         self.device = device
         self.len = df.shape[0]
+        self.transform = transform
         
     @staticmethod
     def _load_img_as_tensor(file_name):
@@ -32,6 +33,10 @@ class ImagesDS(D.Dataset):
         img = self._load_img_as_tensor(path)
         # t1 = time()
         img = img[self.channels,...] # torch.cat([img[i,...].unsqueeze(0) for i in self.channels])  #  img[self.channels,...]  # 
+        
+        if self.transform:
+            img = torch.from_numpy(self.transform(img))
+        
         # print(t1-t0, time()-t1)
         if self.mode == 'train':
             return img, self.records[index].sirna #.to(self.device), torch.tensor(self.records[index].sirna).long().to(self.device)
