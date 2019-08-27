@@ -10,6 +10,13 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torchvision import models
 
+# Get feature extractor
+def get_featureExtractor(model):
+    if model = "dense121":
+        # Return a reference to class
+        return Feature_Dense121
+
+
 # DenseNet module
 class Features_Dense121(nn.Module):
     def __init__(self, nclass = 1038, nchannel=6, mode = 0, path_to_model = "models", pretrain_cp='Model_DenseNet121.pth'):
