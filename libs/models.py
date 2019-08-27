@@ -11,6 +11,57 @@ import torch.nn.functional as F
 from torchvision import models
 
 # DenseNet module
+class Features_Dense121(nn.Module):
+    def __init__(self, nclass = 1038, nchannel=6, mode = 0, path_to_model = "models", pretrain_cp='Model_DenseNet121.pth'):
+        # Note:
+        #   pass pretrain_cp = None to use pretrained weight from pytorch
+        
+        super().__init__()
+        
+        # Mode = 0 - Train mode, return only prediction
+        # Mode = 1 - Feat. mode, return only feature before ReLU and Adaptive
+        # Mode = 2 - Feat. mode, return input of FC layer
+        # Mode = 3 - Hybrid mode, return (prediction, feature before ReLU and Adaptive, input of FC)
+        self.mode = mode
+        
+        # Load Architecture: DenseNetModel-121
+        preloaded = models.densenet121(pretrained=(pretrain_cp is None))
+        self.features = preloaded.features    
+        self.fc = nn.Linear(1024, nclass, bias=True)
+        
+        # Modify conv0 to adapt n_channel training
+        trained_kernel = preloaded.features.conv0.weight
+        self.features.conv0 = nn.Conv2d(nchannel, 64, kernel_size=7, stride=2, padding=3,)
+
+        if pretrain_cp is not None:  # pretrained
+            checkpoint = torch.load(os.path.join(path_to_model, pretrain_cp))
+            self.load_state_dict(checkpoint)
+        else:
+            with torch.no_grad():
+                self.features.conv0.weight[:,:] = torch.stack([torch.mean(trained_kernel, 1)]*nchannel, dim=1)
+
+        del preloaded
+
+    def forward(self, x):
+        features = self.features(x)
+        if self.mode == 1:
+            return features
+        else:
+            out = F.relu(features, inplace=True)
+            out = F.adaptive_avg_pool2d(out, (1, 1)).view(features.size(0), -1)  # global average pooling
+            if self.mode == 2:
+                return out
+            else:
+                pred = self.fc(out)
+                if self.mode == 0:
+                    return pred
+                elif self.mode == 3:
+                    return pred, features, out
+                else:
+                    Raise ValueError("Undefined Mode")
+
+
+# DenseNet module
 class DenseFeatures(nn.Module):
     def __init__(self, nchannel=6, pretrain_local=False, pretrain_cp='Model_DenseNet121.pth'):
         super().__init__()
