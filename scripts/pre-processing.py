@@ -307,8 +307,7 @@ class Row_dumper(Thread):
 #                    _fname = "{}/{}_s{}_w{}_{:02d}".format(_path,row['well'],(site+1),(channel+1),sub_idx)
 #                    
 #                    np.save(_fname,subimg)
-    
-    
+
     
 def _dump_subsample(df,dcate,output_w,output_h,stride,data_root_path,data_new_root_path):
     queue = Queue()

@@ -11,10 +11,10 @@ from imgaug import augmenters as iaa
 class ImgAugTransform:
   def __init__(self):
     self.aug = iaa.Sequential([
-        iaa.Sometimes(0.5,iaa.Fliplr(0.5)), # horizontally flip 50% of the images
-        iaa.Sometimes(0.5,iaa.Flipud(0.5)), # horizontally flip 50% of the images
-        iaa.Sometimes(0.1,iaa.AdditiveGaussianNoise(scale=(0, 0.02*255))), # blur images with a sigma of 0 to 3.0
-        iaa.Sometimes(0.5,iaa.Affine(rotate=(-20,20), translate_px={"x": (-10, 10), "y": (-5, 5)}))
+        iaa.Fliplr(0.2), # horizontally flip 20% of the images
+        iaa.Flipud(0.2), # horizontally flip 20% of the images
+        iaa.Sometimes(0.1,iaa.AdditiveGaussianNoise(scale=(0, 0.02*255))), # blur images with a sigma of 0 to 5.0
+        iaa.Sometimes(0.4,iaa.Affine(rotate=(-45,45), translate_px={"x": (-16, 16), "y": (-16, 16)}))
     ])
       
   def __call__(self, imgs):
@@ -22,6 +22,6 @@ class ImgAugTransform:
     imgs = np.array(imgs)
     
     # [batch_size, channels, height, width] => [batch_size, height, width, channels]
-    imgs = np.rollaxis(imgs,1,4)
+    imgs = np.rollaxis(imgs,1,4)  # 0,3
     res = self.aug(images = imgs)
-    return np.rollaxis(res,3,1)
+    return np.rollaxis(res,3,1)  # 2,0

@@ -27,17 +27,16 @@ from torch.nn.parallel import DistributedDataParallel
 from tqdm import tqdm, tqdm_notebook
 
 from libs.dataloader import ImagesDS
-from libs.models import DenseNetModel
+from libs.models import get_featureExtractor  # DenseNetModel
+from libs.augmentation import ImgAugTransform
 
 import warnings
 warnings.filterwarnings('ignore')
 
 # OMP_NUM_THREADS=1
 # MKL_NUM_THREADS=1
-torch.set_num_threads(1)
-torch.backends.cudnn.benchmark = True
 
-def get_data_loaders(train_batch_size, val_batch_size, channels, classes, device='cpu'):
+def get_data_loaders(train_batch_size, val_batch_size, channels, classes, device='cpu', aug=None):
     # data loaders using ImagesDS class
     
     # if classes > 1108:
@@ -47,7 +46,7 @@ def get_data_loaders(train_batch_size, val_batch_size, channels, classes, device
     df_train = pd.read_csv(args.data_path+'/train.csv')
     df_val = pd.read_csv(args.data_path+'/validation.csv')
 
-    ds = ImagesDS(df_train, mode='train', channels=channels, device=device)
+    ds = ImagesDS(df_train, mode='train', channels=channels, device=device, transform = aug)
     ds_val = ImagesDS(df_val, mode='train', channels=channels, device=device)
 
     train_loader = D.DataLoader(ds, sampler=None, batch_size=train_batch_size, shuffle=True, num_workers=args.num_workers, pin_memory=True)
@@ -74,7 +73,7 @@ def accuracy(output, target, topk=(1,)):
 
 def run(train_batch_size, val_batch_size, epochs, lr, log_interval, channels, classes):
     # load model
-    model = DenseNetModel(classes, channels)
+    model = get_featureExtractor('dense121')(classes, len(channels))
 
     # load saved weights
     if args.pretrained:
@@ -96,8 +95,14 @@ def run(train_batch_size, val_batch_size, epochs, lr, log_interval, channels, cl
     else:
         device = "cpu"
 
+    # augmentation
+    if args.augmentation:
+        aug = ImgAugTransform()
+    else:
+        aug = None
+
     # load data generator
-    train_loader, val_loader = get_data_loaders(train_batch_size, val_batch_size, channels, classes, device=device)
+    train_loader, val_loader = get_data_loaders(train_batch_size, val_batch_size, channels, classes, device=device)  # aug=aug
 
     # for parallel
     if args.distributed:
@@ -152,6 +157,8 @@ def run(train_batch_size, val_batch_size, epochs, lr, log_interval, channels, cl
         acc = np.zeros(1)
         t0 = time()
         for i, (x, y) in enumerate(train_loader): 
+            if aug:
+                x = torch.from_numpy(aug(x))
             x = x.to(device)
             y = torch.tensor(y).long().to(device)
             t1 = time()
@@ -184,7 +191,10 @@ def run(train_batch_size, val_batch_size, epochs, lr, log_interval, channels, cl
             ch = ''.join([str(i) for i in channels])
             torch.save(model.state_dict(), f'models/Model_pretrained_{ch}_DenseNet121_{epoch+1}.pth')
             if (epoch+1)//save_interval>n_saved:
-                os.remove(f'models/Model_pretrained_{ch}_DenseNet121_{epoch+1-save_interval*n_saved}.pth')
+                try:
+                    os.remove(f'models/Model_pretrained_{ch}_DenseNet121_{epoch+1-save_interval*n_saved}.pth')
+                except:
+                    pass
 
         model.eval()
         # compute loss and accuracy of validation
@@ -235,7 +245,7 @@ def savefeatures(df, features, ch):
 def pred(batch_size, log_interval, mode, channels, classes):
 
     # load model
-    model = DenseNetModel(classes, channels, forfeatures=True)
+    model = get_featureExtractor('dense121')(classes, len(channels), mode=2)  # predict feature
 
     ch = ''.join([str(i) for i in channels])
     checkpoint = torch.load(f'models/Model_Pretrained_{ch}_DenseNet121.pth')
@@ -262,10 +272,10 @@ def pred(batch_size, log_interval, mode, channels, classes):
         preds = np.empty(0)
         for i, (x, _) in enumerate(loader): 
             x = x.cuda(args.gpu)
-            output, features = model(x)
+            output, features, _ = model(x)
             idx = output.max(dim=-1)[1].cpu().numpy()
             preds = np.append(preds, idx, axis=0)  
-            if forfeatures:
+            if mode:
                 savefeatures(df_test.iloc[i*batch_size:min((i+1)*batch_size, df_test.shape[0])], features, ch)
             iter = i % len(loader) + 1
             if iter % log_interval == 0:
@@ -283,7 +293,9 @@ if __name__ == "__main__":
     parser.add_argument("--prediction", type=bool, default=False,
                         help="prediction mode (default: False)")
     parser.add_argument("--mode", type=str, default='train',
-                        help="prediction mode (default: train)")
+                        help="working mode (default: train)")
+    parser.add_argument("--augmentation", type=bool, default=False,
+                        help="augmentation (default: False)")
     parser.add_argument("--batch_size", type=int, default=32,
                         help="input batch size for training (default: 32)")
     parser.add_argument("--val_batch_size", type=int, default=64,
@@ -323,7 +335,11 @@ if __name__ == "__main__":
     torch.cuda.set_device(args.gpu)
 
     # device = 'cuda'
-    torch.manual_seed(0)
+    # torch.manual_seed(0)
+
+    # num of threads
+    torch.set_num_threads(args.num_workers)
+    torch.backends.cudnn.benchmark = True
 
     if args.distributed:
         torch.distributed.init_process_group(args.dist_backend,
